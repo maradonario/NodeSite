@@ -6,32 +6,59 @@ var app = express();
 // set up handle bars
 var handlebars = require('express-handlebars')
     .create({ defaultLayout : 'main'})
-
 app.engine('handlebars', handlebars.engine);
 app.set('view engine', 'handlebars');
 
+// set port
 app.set('port', process.env.PORT || 3000);
 
+// static content
 app.use(express.static(__dirname + '/public'));
 
-// Dummy Data
+// middle ware for partial views
+app.use(function(req, res, next){
+    if(!res.locals.partials) {
+        res.locals.partials = {};
+    }
+    res.locals.partials.weatherContext = getWeatherData();
+    next();
+});
 
+// Dummy Data for weather
 function getWeatherData() {
     return {
         locations : [
             {
                 name : 'Portland',
                 forecastUrl : 'https://www.wunderground.com/us/or/portland',
-                
-            }
+                iconUrl : 'http://icons-ak.wxug.com/i/c/k/partlycloudy.gif',
+                weather : 'Overcast',
+                temp : '54.1 F (12.8 C)'
+            },
+            {
+                name : 'San Francisco',
+                forecastUrl : 'https://www.wunderground.com/US/CA/San_Francisco.html',
+                iconUrl : 'http://icons-ak.wxug.com/i/c/k/cloudy.gif',
+                weather : 'Cloudy',
+                temp : '70.1 F (16.8 C)'
+            },
+            {
+                name : 'San Jose',
+                forecastUrl : 'https://www.wunderground.com/US/CA/San_Jose.html',
+                iconUrl : 'http://icons-ak.wxug.com/i/c/k/sunny.gif',
+                weather : 'Overcast',
+                temp : '80.1 F (18.8 C)'
+            }            
         ]
     };
 };
 
+// home page
 app.get('/', function(req, res) {
     res.render('home');
 });
 
+// about page
 app.get('/about', function(req, res) {
     res.render('about', {fortune : fortune.getFortune()});
 });
