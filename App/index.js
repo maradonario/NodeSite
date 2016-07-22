@@ -16,6 +16,18 @@ app.use(express.static(__dirname + '/public'));
 
 // Dummy Data
 
+function getWeatherData() {
+    return {
+        locations : [
+            {
+                name : 'Portland',
+                forecastUrl : 'https://www.wunderground.com/us/or/portland',
+                
+            }
+        ]
+    };
+};
+
 app.get('/', function(req, res) {
     res.render('home');
 });
