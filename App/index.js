@@ -4,10 +4,19 @@ var fortune = require('./lib/fortune.js');
 var app = express();
 
 // set up handle bars
-var handlebars = require('express-handlebars')
-    .create({ defaultLayout : 'main'})
+var handlebars = require('express-handlebars').create({ 
+    defaultLayout : 'main',
+    helpers : {
+        section : function(name, options) {
+            if(!this._sections) this._sections = {};
+            this._sections[name] = options.fn(this);
+            return null;
+        }
+    }
+});
 app.engine('handlebars', handlebars.engine);
 app.set('view engine', 'handlebars');
+
 
 // set port
 app.set('port', process.env.PORT || 3000);
@@ -58,6 +67,11 @@ app.get('/', function(req, res) {
     res.render('home');
 });
 
+// home page
+app.get('/jquery-test', function(req, res) {
+    res.render('jquery-test');
+});
+
 // about page
 app.get('/about', function(req, res) {
     res.render('about', {fortune : fortune.getFortune()});
@@ -68,7 +82,6 @@ app.use(function(err, res) {
     res.status(404);
     res.render('404');
 });
-
 
 //custom 500 page
 app.use(function(err, res, next) {
