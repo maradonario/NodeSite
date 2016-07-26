@@ -24,6 +24,8 @@ app.set('port', process.env.PORT || 3000);
 // static content
 app.use(express.static(__dirname + '/public'));
 
+app.use(require('body-parser').urlencoded({ extended : true}));
+
 // middle ware for partial views
 app.use(function(req, res, next){
     if(!res.locals.partials) {
@@ -75,6 +77,22 @@ app.get('/jquery-test', function(req, res) {
 // about page
 app.get('/about', function(req, res) {
     res.render('about', {fortune : fortune.getFortune()});
+});
+
+app.get('/thankyou', function(req, res) {
+    res.render('thankyou');
+});
+
+app.get('/newsletter', function(req, res) {
+    res.render('newsletter', {csrf : 'CSRF Token goes here'});
+});
+
+app.post('/process', function(req, res){
+    console.log('Form (from query string): ' + req.query.form);
+    console.log('CSRF Token (from hidden form field): ' + req.body._csrf);
+    console.log('Name (from visible input text): ' + req.body.name);
+    console.log('Email from bisible input: ' + req.body.email);
+    res.redirect(303, '/thankyou');
 });
 
 //custom 404 page
