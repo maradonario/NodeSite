@@ -1,6 +1,7 @@
 var express = require('express');
 var fortune = require('./lib/fortune.js');
 var formidable = require('formidable');
+var credentials = require('./credentials.js');
 
 var app = express();
 
@@ -26,6 +27,8 @@ app.set('port', process.env.PORT || 3000);
 app.use(express.static(__dirname + '/public'));
 
 app.use(require('body-parser').urlencoded({ extended : true}));
+
+app.use(require('cookie-parser')(credentials.cookieSecret));
 
 // middle ware for partial views
 app.use(function(req, res, next){
@@ -67,6 +70,7 @@ function getWeatherData() {
 
 // home page
 app.get('/', function(req, res) {
+    res.cookie('monster', 'nom nom');
     res.render('home');
 });
 
@@ -77,6 +81,8 @@ app.get('/jquery-test', function(req, res) {
 
 // about page
 app.get('/about', function(req, res) {
+    var monster = req.cookies.monster;
+    console.log('Cookie value for monster is: ' + monster);
     res.render('about', {fortune : fortune.getFortune()});
 });
 
