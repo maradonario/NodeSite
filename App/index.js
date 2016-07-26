@@ -88,11 +88,18 @@ app.get('/newsletter', function(req, res) {
 });
 
 app.post('/process', function(req, res){
+    if (req.xhr || req.accepts('json,html') === 'json') {
+        res.send({success : true});
+    }
+    else {
+        res.redirect(303, '/thankyou');
+    }
+    
     console.log('Form (from query string): ' + req.query.form);
     console.log('CSRF Token (from hidden form field): ' + req.body._csrf);
     console.log('Name (from visible input text): ' + req.body.name);
     console.log('Email from bisible input: ' + req.body.email);
-    res.redirect(303, '/thankyou');
+
 });
 
 //custom 404 page
