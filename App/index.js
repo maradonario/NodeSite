@@ -29,6 +29,11 @@ app.use(express.static(__dirname + '/public'));
 app.use(require('body-parser').urlencoded({ extended : true}));
 
 app.use(require('cookie-parser')(credentials.cookieSecret));
+app.use(require('express-session')({
+    resave: false,
+    saveUninitialized: false,
+    secret: credentials.cookieSecret
+}));
 
 // middle ware for partial views
 app.use(function(req, res, next){
@@ -36,6 +41,13 @@ app.use(function(req, res, next){
         res.locals.partials = {};
     }
     res.locals.partials.weatherContext = getWeatherData();
+    next();
+});
+
+app.use(function(req, res, next){
+    // if there's a flash message, transfer it to the context, then clear it
+    res.locals.flash = req.session.flash;
+    delete req.session.flash;
     next();
 });
 
@@ -94,20 +106,56 @@ app.get('/newsletter', function(req, res) {
     res.render('newsletter', {csrf : 'CSRF Token goes here'});
 });
 
+var VALID_EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
+
+// for now, we're mocking NewsletterSignup:
+function NewsletterSignup(){
+}
+NewsletterSignup.prototype.save = function(cb){
+	cb();
+};
 app.post('/process', function(req, res){
-    if (req.xhr || req.accepts('json,html') === 'json') {
-        res.send({success : true});
-    }
-    else {
-        res.redirect(303, '/thankyou');
-    }
-    
+	
     console.log('Form (from query string): ' + req.query.form);
     console.log('CSRF Token (from hidden form field): ' + req.body._csrf);
     console.log('Name (from visible input text): ' + req.body.name);
     console.log('Email from bisible input: ' + req.body.email);
+    
+    var name = req.body.name || '', email = req.body.email || '';
+	// input validation
+	if(!email.match(VALID_EMAIL_REGEX)) {
+		if(req.xhr) return res.json({ error: 'Invalid name email address.' });
+		req.session.flash = {
+			type: 'danger',
+			intro: 'Validation error!',
+			message: 'The email address you entered was  not valid.',
+		};
+		return res.redirect(303, '/newsletter/archive');
+	}
+	new NewsletterSignup({ name: name, email: email }).save(function(err){
+		if(err) {
+			if(req.xhr) return res.json({ error: 'Database error.' });
+			req.session.flash = {
+				type: 'danger',
+				intro: 'Database error!',
+				message: 'There was a database error; please try again later.',
+			};
+			return res.redirect(303, '/newsletter/archive');
+		}
 
+		req.session.flash = {
+			type: 'success',
+			intro: 'Thank you!',
+			message: 'You have now been signed up for the newsletter.',
+		};
+
+		if(req.xhr) return res.json({ success: true });
+
+		return res.redirect(303, '/newsletter/archive');
+	});
 });
+
+
 
 app.get('/contest/vacation-photo', function(req, res){
     var now = new Date();
