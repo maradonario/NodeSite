@@ -2,6 +2,7 @@ var express = require('express');
 var fortune = require('./lib/fortune.js');
 var formidable = require('formidable');
 var credentials = require('./credentials.js');
+var emailService = require('./lib/email.js')(credentials);
 
 var app = express();
 
@@ -19,16 +20,17 @@ var handlebars = require('express-handlebars').create({
 app.engine('handlebars', handlebars.engine);
 app.set('view engine', 'handlebars');
 
-
 // set port
 app.set('port', process.env.PORT || 3000);
 
 // static content
 app.use(express.static(__dirname + '/public'));
 
+// link body-parser
 app.use(require('body-parser').urlencoded({ extended : true}));
-
+// link cookie-parser
 app.use(require('cookie-parser')(credentials.cookieSecret));
+//link session
 app.use(require('express-session')({
     resave: false,
     saveUninitialized: false,
@@ -44,6 +46,7 @@ app.use(function(req, res, next){
     next();
 });
 
+// middleware for flash object from session to local context
 app.use(function(req, res, next){
     // if there's a flash message, transfer it to the context, then clear it
     res.locals.flash = req.session.flash;
@@ -98,10 +101,15 @@ app.get('/about', function(req, res) {
     res.render('about', {fortune : fortune.getFortune()});
 });
 
+// thank-you page after newsletter sign up
 app.get('/thankyou', function(req, res) {
     res.render('thankyou');
+
+    // send email
+    emailService.send('mestevezcruz@gmail.com', 'Thank you for learning node.js', 'This is the body');
 });
 
+// newsletter form
 app.get('/newsletter', function(req, res) {
     res.render('newsletter', {csrf : 'CSRF Token goes here'});
 });
@@ -114,6 +122,8 @@ function NewsletterSignup(){
 NewsletterSignup.prototype.save = function(cb){
 	cb();
 };
+
+// process newsletter form
 app.post('/process', function(req, res){
 	
     console.log('Form (from query string): ' + req.query.form);
@@ -155,14 +165,14 @@ app.post('/process', function(req, res){
 	});
 });
 
-
-
+// create file upload form
 app.get('/contest/vacation-photo', function(req, res){
     var now = new Date();
 
     res.render('contest/vacation-photo', { year : now.getFullYear(), month : now.getMonth()});
 });
 
+// process file upload
 app.post('/contest/vacation-photo/:year/:month', function(req, res){
     var form = formidable.IncomingForm();
     form.parse(req, function(err, fields, files){
@@ -182,6 +192,7 @@ app.post('/contest/vacation-photo/:year/:month', function(req, res){
 //custom 404 page
 app.use(function(err, res) {
     res.status(404);
+
     res.render('404');
 });
 
