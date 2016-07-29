@@ -3,6 +3,7 @@ var fortune = require('./lib/fortune.js');
 var formidable = require('formidable');
 var credentials = require('./credentials.js');
 var emailService = require('./lib/email.js')(credentials);
+var http = require('http');
 
 var app = express();
 
@@ -30,12 +31,28 @@ app.use(express.static(__dirname + '/public'));
 app.use(require('body-parser').urlencoded({ extended : true}));
 // link cookie-parser
 app.use(require('cookie-parser')(credentials.cookieSecret));
+
 //link session
 app.use(require('express-session')({
     resave: false,
     saveUninitialized: false,
     secret: credentials.cookieSecret
 }));
+
+switch (app.get('env')) {
+    case 'development':
+        // compact colorful dev logging
+        app.use(require('morgan')('dev'));
+        break;
+    case 'production':
+        // daily log rotation
+        app.use(require('express-logger')({
+            path: __dirname + '/log/request.log'
+        }));
+        break;
+    default:
+        break;
+}
 
 // middle ware for partial views
 app.use(function(req, res, next){
@@ -51,6 +68,15 @@ app.use(function(req, res, next){
     // if there's a flash message, transfer it to the context, then clear it
     res.locals.flash = req.session.flash;
     delete req.session.flash;
+    next();
+});
+
+// middleware to log cluster workers
+app.use(function(req, res, next) {
+    var cluster = require('cluster');
+    if (cluster.isWorker) {
+        console.log('Worker %d, received request', cluster.worker.id);
+    }
     next();
 });
 
@@ -203,6 +229,21 @@ app.use(function(err, res, next) {
     res.render('500');
 });
 
-app.listen(app.get('port'), function() {
-    console.log('Express started on http://localhost:' + app.get('port') + '; press Ctrl-C to terminate');
-});
+
+var server;
+
+function startServer() {
+    server = http.createServer(app).listen(app.get('port'), function(){
+      console.log( 'Express started in ' + app.get('env') +
+        ' mode on http://localhost:' + app.get('port') +
+        '; press Ctrl-C to terminate.' );
+    });
+}
+
+if(require.main === module){
+    // application run directly; start app server
+    startServer();
+} else {
+    // application imported as a module via "require": export function to create server
+    module.exports = startServer;
+}
