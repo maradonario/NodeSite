@@ -24,6 +24,51 @@ app.set('view engine', 'handlebars');
 // set port
 app.set('port', process.env.PORT || 3000);
 
+// use domains for better error handling
+app.use(function(req, res, next){
+    // create a domain for this request
+    var domain = require('domain').create();
+    // handle errors on this domain
+    domain.on('error', function(err){
+        console.error('DOMAIN ERROR CAUGHT\n', err.stack);
+        try {
+            // failsafe shutdown in 5 seconds
+            setTimeout(function(){
+                console.error('Failsafe shutdown.');
+                process.exit(1);
+            }, 5000);
+
+            // disconnect from the cluster
+            var worker = require('cluster').worker;
+            if(worker) worker.disconnect();
+
+            // stop taking new requests
+            server.close();
+
+            try {
+                // attempt to use Express error route
+                next(err);
+            } catch(error){
+                // if Express error route failed, try
+                // plain Node response
+                console.error('Express error mechanism failed.\n', error.stack);
+                res.statusCode = 500;
+                res.setHeader('content-type', 'text/plain');
+                res.end('Server error.');
+            }
+        } catch(error){
+            console.error('Unable to send 500 response.\n', error.stack);
+        }
+    });
+
+    // add the request and response objects to the domain
+    domain.add(req);
+    domain.add(res);
+
+    // execute the rest of the request chain in the domain
+    domain.run(next);
+});
+
 // static content
 app.use(express.static(__dirname + '/public'));
 
@@ -109,6 +154,18 @@ function getWeatherData() {
     };
 };
 
+// error page
+app.get('/fail', function(req, res){
+    throw new Error("Threw new Error() from /fail. This is expected.")
+});
+
+// really bad error
+app.get('/epic-fail', function(req, res){
+    process.nextTick(function() {
+        throw new Error('KAbooom bad :-0()');
+    });
+});
+
 // home page
 app.get('/', function(req, res) {
     res.cookie('monster', 'nom nom');
@@ -130,9 +187,6 @@ app.get('/about', function(req, res) {
 // thank-you page after newsletter sign up
 app.get('/thankyou', function(req, res) {
     res.render('thankyou');
-
-    // send email
-    emailService.send('mestevezcruz@gmail.com', 'Thank you for learning node.js', 'This is the body');
 });
 
 // newsletter form
