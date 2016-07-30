@@ -7,6 +7,8 @@ var http = require('http');
 var app = express();
 
 var Vacation = require('./models/vacation.js');
+var VacationInSeasonListener = require('./models/vacationInSeasonListener.js');
+
 var mongoose = require('mongoose');
 var opts = {
     server : {
@@ -221,6 +223,40 @@ function getWeatherData() {
         ]
     };
 };
+
+//
+app.get('/notify-me-when-in-season', function(req, res){
+    res.render('notify-me-when-in-season', {sku: req.query.sku});
+});
+
+app.post('/notify-me-when-in-season', function(req, res){
+    var newNotification = new VacationInSeasonListener({email: req.body.email, skus: [req.body.sku]});
+
+    newNotification.save(
+        function(err){
+            if (err) {
+                console.error(err.stack);
+                req.session.flash = {
+                    type: 'danger',
+                    intro: 'OOOPPPSSS',
+                    message: 'There was an error processing your request.'
+                };
+                return res.redirect(303, '/vacations');
+            }
+
+       }
+    );
+
+    req.session.flash = {
+        type: 'success',
+
+        intro: 'Thank You!',
+        message: 'You will be notified when this vacation is in season.'
+    };
+
+	return res.redirect(303, '/vacations');
+});
+
 // vacations
 app.get('/vacations', function(req, res) {
     Vacation.find({ available : true}, function(err, vacations){
